@@ -1,0 +1,19 @@
+remote:
+  - model_name: deepseek/deepseek-chat-v3-0324:free
+    description: DeepSeek V3
+
+  - model_name: google/gemini-2.5-flash-preview
+    description: Google Gemini Flash 2.5  
+
+# local:
+#   - model_name: mistral
+#     description: Mistral 7B – hiệu quả cao, nhẹ, có thể chạy với 1 GPU 24GB
+
+#   - model_name: llama-3
+#     description: Meta LLaMA 3 – phiên bản open-source mạnh mẽ cho ứng dụng nội bộ
+
+#   - model_name: tiny-llama
+#     description: TinyLLaMA – nhẹ, phù hợp cho edge device hoặc fine-tune nhanh
+
+#   - model_name: deepseek-chat
+#     description: DeepSeek Chat – LLM mã nguồn mở từ DeepSeek AI, tối ưu cho trả lời ngữ nghĩa

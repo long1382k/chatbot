@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>AI Chatbot</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f9f9f9;
+    }
+
+    .chat-box {
+      max-width: 800px;
+      margin: auto;
+      background: #fff;
+      border: 1px solid #ddd;
+      padding: 20px;
+      border-radius: 8px;
+    }
+
+    .message {
+      margin-bottom: 1em;
+    }
+
+    .user {
+      font-weight: bold;
+      color: #333;
+    }
+
+    .assistant {
+      color: #2c3e50;
+    }
+
+    .input-container {
+      display: flex;
+      gap: 10px;
+      margin-top: 1em;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      padding: 10px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      background: #3498db;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #2980b9;
+    }
+
+    .markdown {
+      background: #ecf0f1;
+      padding: 10px;
+      border-radius: 4px;
+    }
+
+    select {
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      margin-bottom: 1em;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="chat-box">
+    <label for="modelSelect">Chọn mô hình:</label>
+    <select id="modelSelect">
+      <option>Đang tải mô hình...</option>
+    </select>
+
+    <div id="chatBox"></div>
+  </div>
+
+  <div class="chat-box input-container">
+    <input type="text" id="userInput" placeholder="Nhập tin nhắn..." />
+    <button onclick="sendMessage()">Gửi</button>
+  </div>
+
+  <script>
+    let messages = [];
+
+    async function fetchModels() {
+      try {
+        const res = await fetch("http://localhost:8000/v1/models");
+        const data = await res.json();
+        const modelSelect = document.getElementById("modelSelect");
+        modelSelect.innerHTML = "";
+
+        data.models.forEach(model => {
+          const option = document.createElement("option");
+          option.value = model.model_name;
+          option.textContent = `${model.description} (${model.type})`;
+          modelSelect.appendChild(option);
+        });
+      } catch (err) {
+        alert("Không tải được danh sách mô hình từ backend.");
+      }
+    }
+
+    function getSessionId() {
+      let sessionId = localStorage.getItem("chat_session_id");
+      if (!sessionId) {
+        sessionId = "sess_" + Math.random().toString(36).substring(2, 12);
+        localStorage.setItem("chat_session_id", sessionId);
+      }
+      return sessionId;
+    }
+
+    function sendMessage() {
+      const input = document.getElementById('userInput');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const model = document.getElementById("modelSelect").value;
+      const sessionId = getSessionId();
+      const chatBox = document.getElementById("chatBox");
+
+      // Hiển thị câu hỏi người dùng
+      messages.push({ role: "user", content: text });
+      renderMessage("user", text);
+      input.value = '';
+
+      // Tạo div chứa phản hồi AI và ID duy nhất
+      const replyId = `streamingReply_${Date.now()}`;
+      const assistantDiv = document.createElement("div");
+      assistantDiv.classList.add("message");
+      assistantDiv.innerHTML = `<div class="assistant">AI:</div><div class="markdown" id="${replyId}"></div>`;
+      chatBox.appendChild(assistantDiv);
+      chatBox.scrollTop = chatBox.scrollHeight;
+
+      // Gọi API stream
+      const eventSource = new EventSourcePolyfill("http://localhost:8000/v1/chat/stream", {
+        headers: {
+          "Content-Type": "application/json",
+          "X-Session-ID": sessionId
+        },
+        payload: JSON.stringify({
+          model: model,
+          messages: messages,
+          temperature: 0.7
+        }),
+        method: "POST"
+      });
+
+      let fullReply = "";
+
+      eventSource.onmessage((event) => {
+        if (event.data === "[DONE]") {
+          messages.push({ role: "assistant", content: fullReply });
+          eventSource.close();
+          return;
+        }
+
+        try {
+          const data = JSON.parse(event.data);
+          const delta =
+            data?.choices?.[0]?.delta?.content ??
+            data?.choices?.[0]?.message?.content ??
+            data?.content ?? "";
+
+          if (delta) {
+            fullReply += delta;
+            document.getElementById(replyId).innerHTML = marked.parse(fullReply);
+            chatBox.scrollTop = chatBox.scrollHeight;
+          }
+        } catch (err) {
+          console.warn("Invalid SSE data:", event.data);
+        }
+      });
+
+      eventSource.onerror(() => {
+        console.error("SSE error");
+        eventSource.close();
+      });
+    }
+
+    function renderMessage(role, text) {
+      const chatBox = document.getElementById("chatBox");
+      const div = document.createElement("div");
+      div.classList.add("message");
+
+      if (role === "user") {
+        div.innerHTML = `<div class="user">Bạn:</div><div>${text}</div>`;
+      } else {
+        div.innerHTML = `<div class="assistant">AI:</div><div class="markdown">${marked.parse(text)}</div>`;
+      }
+
+      chatBox.appendChild(div);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    class EventSourcePolyfill {
+      constructor(url, { headers, payload, method }) {
+        this.listeners = {};
+        this.init(url, headers, payload, method);
+      }
+
+      init(url, headers, payload, method) {
+        fetch(url, {
+          method,
+          headers,
+          body: payload
+        }).then(res => {
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder("utf-8");
+          const process = ({ done, value }) => {
+            if (done) return;
+            const chunk = decoder.decode(value);
+            chunk.trim().split(/\n\n+/).forEach(line => {
+              if (line.startsWith("data: ")) {
+                const data = line.slice(6).trim();
+                if (this.listeners.message) this.listeners.message({ data });
+              }
+            });
+            return reader.read().then(process);
+          };
+          return reader.read().then(process);
+        }).catch(err => {
+          if (this.listeners.error) this.listeners.error(err);
+        });
+      }
+
+      onmessage(fn) {
+        this.listeners.message = fn;
+      }
+
+      onerror(fn) {
+        this.listeners.error = fn;
+      }
+
+      close() {}
+    }
+
+    fetchModels();
+  </script>
+</body>
+
+</html>
