@@ -33,11 +33,16 @@ async def chat_stream(req: ChatRequest, request: Request):
 
     # 1️⃣ Lấy lịch sử và thêm vào đầu vào
     history = get_chat_history(session_id)
-    print("Reqest messages",req.messages)
-    all_messages = history + req.messages
-    req.messages = all_messages
+    
+    # Nếu lịch sử rỗng → thêm system prompt
+    if not history:
+        system_prompt = Message(role="system", content="You are a helpful assistant. Just give answer for last message while using before messages as context")
+        req.messages = [system_prompt] + req.messages
+    else:
+        req.messages = history + req.messages
 
     full_reply = ""
+    print("Reqest messages",req.messages)
 
     async def event_generator():
         nonlocal full_reply
