@@ -112,13 +112,8 @@
     }
 
     function getSessionId() {
-      let sessionId = localStorage.getItem("chat_session_id");
-      if (!sessionId) {
-        sessionId = "sess_" + Math.random().toString(36).substring(2, 12);
-        localStorage.setItem("chat_session_id", sessionId);
-      }
-      return sessionId;
-    }
+  return "sess_" + Math.random().toString(36).substring(2, 12);
+}
 
     function sendMessage() {
       const input = document.getElementById('userInput');
