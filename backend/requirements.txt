@@ -4,3 +4,4 @@ httpx
 python-dotenv
 redis
 PyYAML
+langchain_community
