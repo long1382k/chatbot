@@ -2,4 +2,4 @@ backend/chat_history.db
 backend/venv
 *.pyc
 __pycache__/
-.env
+backend/.env

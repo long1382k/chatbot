@@ -3,9 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.utils.auth import check_api_key
 from app.utils.rate_limit import rate_limiter
 from app.router import chat, models
-
+from app.db import init_db
 app = FastAPI()
-
+init_db()
 # ✅ Cấu hình CORS
 app.add_middleware(
     CORSMiddleware,

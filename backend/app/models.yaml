@@ -1,7 +1,4 @@
 remote:
-  # - model_name: deepseek/deepseek-chat-v3-0324:free
-  #   description: DeepSeek V3
-
   - model_name: google/gemini-2.5-flash-preview
     description: Google Gemini Flash 2.5  
 
